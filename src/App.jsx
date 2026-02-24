@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react'
 
-// Shopify API helper
-const SHOPIFY_DOMAIN = 'msreadshop.myshopify.com'
+// Shopify API helper - uses different endpoint based on environment
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const PROXY_URL = isLocal ? 'http://localhost:3000' : ''
 const API_VERSION = '2024-01'
+const SHOPIFY_DOMAIN = 'msreadshop.myshopify.com'
+
+const getApiUrl = (endpoint) => {
+  if (isLocal) {
+    return `${PROXY_URL}/${endpoint}`
+  }
+  // For production, use direct Shopify API (but won't work due to CORS)
+  return `https://${SHOPIFY_DOMAIN}/admin/api/${API_VERSION}/${endpoint}`
+}
 
 const shopifyFetch = async (endpoint, method = 'GET', body = null) => {
   const token = localStorage.getItem('shopifyToken') || prompt('Enter your Shopify Admin API Access Token:')
@@ -18,7 +28,10 @@ const shopifyFetch = async (endpoint, method = 'GET', body = null) => {
   const options = { method, headers }
   if (body) options.body = JSON.stringify(body)
   
-  const res = await fetch(`https://${SHOPIFY_DOMAIN}/admin/api/${API_VERSION}/${endpoint}`, options)
+  const url = getApiUrl(endpoint)
+  console.log('Fetching:', url)
+  
+  const res = await fetch(url, options)
   return res.json()
 }
 
@@ -62,7 +75,7 @@ function App() {
   const [products, setProducts] = useState([])
   const [pendingItems, setPendingItems] = useState([])
   const [loading, setLoading] = useState(false)
-  const [view, setView] = useState('list') // list, approve, edit
+  const [view, setView] = useState('list')
   const [selectedItem, setSelectedItem] = useState(null)
   const [editedDescription, setEditedDescription] = useState('')
   const [message, setMessage] = useState('')
@@ -81,7 +94,6 @@ function App() {
         setProducts(data.products)
         
         // Find products that need SEO optimization
-        // (short descriptions or missing SEO content)
         const needsSEO = data.products.filter(p => {
           const desc = p.body_html || ''
           return desc.length < 200 || !desc.includes('MS READ')
@@ -164,6 +176,10 @@ function App() {
       
       {message && <div style={styles.message}>{message}</div>}
       
+      <div style={styles.warning}>
+        ⚠️ For GitHub Pages: Use locally with proxy. Online version needs CORS proxy.
+      </div>
+      
       <div style={styles.stats}>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{products.length}</div>
@@ -236,6 +252,14 @@ const styles = {
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer'
+  },
+  warning: {
+    padding: '12px',
+    background: '#fff3cd',
+    color: '#856404',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    textAlign: 'center'
   },
   stats: {
     display: 'flex',
